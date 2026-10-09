@@ -30,7 +30,7 @@ Create the local configuration, set a long unique admin password, and start Home
 ```sh
 sudo -u homebase cp /home/homebase/.env.example /home/homebase/.env
 sudo -u homebase editor /home/homebase/.env
-sudo /home/homebase/scripts/homebase install
+sudo /home/homebase/homebase install
 ```
 
 Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
@@ -42,15 +42,15 @@ Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOM
 Use the included management script from an administrator shell:
 
 ```sh
-sudo /home/homebase/scripts/homebase install
-sudo /home/homebase/scripts/homebase start
-sudo /home/homebase/scripts/homebase stop
-sudo /home/homebase/scripts/homebase restart
-sudo /home/homebase/scripts/homebase reload
-sudo /home/homebase/scripts/homebase update
-sudo /home/homebase/scripts/homebase status
-sudo /home/homebase/scripts/homebase uninstall
-sudo /home/homebase/scripts/homebase help
+sudo /home/homebase/homebase install
+sudo /home/homebase/homebase start
+sudo /home/homebase/homebase stop
+sudo /home/homebase/homebase restart
+sudo /home/homebase/homebase reload
+sudo /home/homebase/homebase update
+sudo /home/homebase/homebase status
+sudo /home/homebase/homebase uninstall
+sudo /home/homebase/homebase help
 ```
 
 `install` creates and enables the **user-level** systemd service, enables lingering for `homebase`, builds the initial containers, and starts Homebase at boot. `update` performs a fast-forward-only `git pull`, then rebuilds and restarts the Docker Compose stack. `reload` reapplies the current Compose configuration without stopping the service. `uninstall` stops and removes only the systemd service; it deliberately preserves the repository, local settings, and shared data.
@@ -58,7 +58,7 @@ sudo /home/homebase/scripts/homebase help
 ## Updating
 
 ```sh
-sudo /home/homebase/scripts/homebase update
+sudo /home/homebase/homebase update
 ```
 
 The shared directory is stored in `data/apps.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
@@ -155,7 +155,7 @@ Then rerun the update command above. Caddy can obtain and renew HTTPS certificat
 - `Caddyfile` and `compose.yaml` — web server and container deployment.
 - `compose.override.example.yaml` — starting point for ignored, machine-specific Compose settings.
 - `deploy/homebase.service` — systemd service for startup.
-- `scripts/homebase` — administrative start, stop, restart, reload, and update command.
+- `homebase` — administrative install, uninstall, start, stop, restart, reload, update, and status command.
 
 ## License
 

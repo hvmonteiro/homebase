@@ -10,7 +10,7 @@ readonly UNIT_DESTINATION="${INSTALL_DIR}/.config/systemd/user/${UNIT_NAME}"
 
 usage() {
   cat <<'EOF'
-Usage: sudo /home/homebase/scripts/homebase <command>
+Usage: sudo /home/homebase/homebase <command>
 
 Commands:
   install   Install, enable, and start the Homebase user service
