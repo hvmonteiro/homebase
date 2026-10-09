@@ -1,0 +1,4 @@
+{$HOMEBASE_ADDRESS:http://:80} {
+  encode zstd gzip
+  reverse_proxy homebase:3000
+}

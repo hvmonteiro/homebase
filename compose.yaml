@@ -1,0 +1,31 @@
+services:
+  homebase:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+      TRUST_PROXY: "true"
+    volumes:
+      - ./data:/app/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - homebase
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Use http://:80 for a LAN-only HTTP setup. Replace with a real hostname
+      # (for example, homebase.example.com) when you want automatic HTTPS.
+      HOMEBASE_ADDRESS: ${HOMEBASE_ADDRESS:-http://:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,16 @@
+{
+  "name": "homebase",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A shared home-server application dashboard.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/static": "^8.2.0",
+    "fastify": "^5.2.1"
+  }
+}
