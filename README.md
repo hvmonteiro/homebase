@@ -57,6 +57,20 @@ The service starts the existing Docker Compose stack in `homebase`'s systemd use
 sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) systemctl --user status homebase.service
 ```
 
+## Manage Homebase
+
+Use the included management script from an administrator shell:
+
+```sh
+sudo /home/homebase/scripts/homebase start
+sudo /home/homebase/scripts/homebase stop
+sudo /home/homebase/scripts/homebase restart
+sudo /home/homebase/scripts/homebase reload
+sudo /home/homebase/scripts/homebase update
+```
+
+`update` performs a fast-forward-only `git pull`, then rebuilds and restarts the Docker Compose stack. `reload` reapplies the current Compose configuration without stopping the service.
+
 ## Updating
 
 ```sh
@@ -158,6 +172,7 @@ Then rerun the update command above. Caddy can obtain and renew HTTPS certificat
 - `Caddyfile` and `compose.yaml` — web server and container deployment.
 - `compose.override.example.yaml` — starting point for ignored, machine-specific Compose settings.
 - `deploy/homebase.service` — systemd service for startup.
+- `scripts/homebase` — administrative start, stop, restart, reload, and update command.
 
 ## License
 

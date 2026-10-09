@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Manage the Homebase user-level systemd service.
+set -Eeuo pipefail
+
+readonly SERVICE_USER="homebase"
+readonly INSTALL_DIR="/home/homebase"
+readonly UNIT_NAME="homebase.service"
+
+usage() {
+  cat <<'EOF'
+Usage: sudo /home/homebase/scripts/homebase <command>
+
+Commands:
+  start     Start Homebase
+  stop      Stop Homebase
+  restart   Restart Homebase
+  reload    Apply the current Compose configuration without stopping Homebase
+  update    Pull the latest Git revision and rebuild/restart Homebase
+EOF
+}
+
+if [[ ${EUID} -ne 0 ]]; then
+  echo "Run this command with sudo." >&2
+  exit 1
+fi
+
+if [[ ! -d ${INSTALL_DIR}/.git ]]; then
+  echo "Homebase was not found at ${INSTALL_DIR}." >&2
+  exit 1
+fi
+
+service_uid="$(id -u "${SERVICE_USER}")"
+runtime_dir="/run/user/${service_uid}"
+
+run_as_service_user() {
+  runuser -u "${SERVICE_USER}" -- env \
+    XDG_RUNTIME_DIR="${runtime_dir}" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=${runtime_dir}/bus" \
+    "$@"
+}
+
+service_command() {
+  run_as_service_user /usr/bin/systemctl --user "$1" "${UNIT_NAME}"
+}
+
+case "${1:-}" in
+  start|stop|restart|reload)
+    service_command "$1"
+    ;;
+  update)
+    run_as_service_user /usr/bin/git -C "${INSTALL_DIR}" pull --ff-only
+    run_as_service_user /usr/bin/docker compose --project-directory "${INSTALL_DIR}" up -d --build
+    ;;
+  -h|--help|help|'')
+    usage
+    ;;
+  *)
+    echo "Unknown command: $1" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
