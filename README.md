@@ -9,45 +9,58 @@ Homebase is a shared dashboard for applications running on a home server. Everyo
 
 ## Install on a Linux server
 
-Create a dedicated, non-login service account named `homebase`, then allow it to run Docker containers:
+Create a dedicated, non-login service account named `homebase`, then create its empty home directory manually and allow it to run Docker containers:
 
 ```sh
-sudo useradd --create-home --shell /usr/sbin/nologin homebase
+sudo groupadd --force homebase
+sudo useradd --no-create-home --shell /usr/sbin/nologin homebase
+sudo install -d -o homebase -g homebase /home/homebase
+sudo usermod --gid homebase --home /home/homebase homebase
 sudo usermod -aG docker homebase
 ```
 
-Create a home for the project that the account owns. The `/srv` location keeps application files out of individual users' home directories:
+Clone the project into that account's home directory:
 
 ```sh
-sudo mkdir -p /srv/homebase
-sudo chown homebase:homebase /srv/homebase
-sudo -u homebase git clone https://github.com/hvmonteiro/homebase.git /srv/homebase
+sudo -u homebase git clone https://github.com/hvmonteiro/homebase.git /home/homebase
 ```
 
 Create the local configuration, set a long unique admin password, and start Homebase:
 
 ```sh
-sudo -u homebase cp /srv/homebase/.env.example /srv/homebase/.env
-sudo -u homebase editor /srv/homebase/.env
-sudo -u homebase docker compose -f /srv/homebase/compose.yaml up -d --build
+sudo -u homebase cp /home/homebase/.env.example /home/homebase/.env
+sudo -u homebase editor /home/homebase/.env
+sudo -u homebase docker compose -f /home/homebase/compose.yaml up -d --build
 ```
 
 Open `http://<server-ip>/` from your home network. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
 
 > Docker's `docker` group grants elevated control over the host. Keep membership limited to the dedicated `homebase` account and trusted administrators.
 
+## Start at boot
+
+Install the supplied systemd unit after the first successful launch:
+
+```sh
+sudo cp /home/homebase/deploy/homebase.service /etc/systemd/system/homebase.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now homebase.service
+```
+
+The service starts the existing Docker Compose stack after Docker itself is ready. Check it with `sudo systemctl status homebase`.
+
 ## Updating
 
 ```sh
-sudo -u homebase git -C /srv/homebase pull --ff-only
-sudo -u homebase docker compose -f /srv/homebase/compose.yaml up -d --build
+sudo -u homebase git -C /home/homebase pull --ff-only
+sudo -u homebase docker compose -f /home/homebase/compose.yaml up -d --build
 ```
 
 The shared directory is stored in `data/apps.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
 
 ## HTTPS
 
-The default configuration is plain HTTP for a LAN-only installation. If you have a hostname that resolves to this server, add this to `/srv/homebase/.env`:
+The default configuration is plain HTTP for a LAN-only installation. If you have a hostname that resolves to this server, add this to `/home/homebase/.env`:
 
 ```dotenv
 HOMEBASE_ADDRESS=homebase.example.com
@@ -61,6 +74,7 @@ Then rerun the update command above. Caddy will obtain and renew HTTPS certifica
 - `public/` — Homebase interface.
 - `data/apps.json` — created automatically on first run; never commit it.
 - `Caddyfile` and `compose.yaml` — web server and container deployment.
+- `deploy/homebase.service` — systemd service for startup.
 
 ## License
 
