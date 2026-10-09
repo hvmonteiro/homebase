@@ -39,15 +39,23 @@ Open `http://<server-ip>/` from your home network. Use the top-right `⋮` menu 
 
 ## Start at boot
 
-Install the supplied systemd unit after the first successful launch:
+Install the supplied **user-level** systemd unit after the first successful launch. User lingering keeps the `homebase` user manager running at boot even though the account cannot log in:
 
 ```sh
-sudo cp /home/homebase/deploy/homebase.service /etc/systemd/system/homebase.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now homebase.service
+sudo install -d -o homebase -g homebase /home/homebase/.config/systemd/user
+sudo install -m 644 -o homebase -g homebase \
+  /home/homebase/deploy/homebase.service \
+  /home/homebase/.config/systemd/user/homebase.service
+sudo loginctl enable-linger homebase
+sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) systemctl --user daemon-reload
+sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) systemctl --user enable --now homebase.service
 ```
 
-The service starts the existing Docker Compose stack after Docker itself is ready. Check it with `sudo systemctl status homebase`.
+The service starts the existing Docker Compose stack in `homebase`'s systemd user space. Check it with:
+
+```sh
+sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) systemctl --user status homebase.service
+```
 
 ## Updating
 
