@@ -66,6 +66,23 @@ sudo -u homebase docker compose -f /home/homebase/compose.yaml up -d --build
 
 The shared directory is stored in `data/apps.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
 
+## Local customizations are preserved
+
+Do not modify Git-tracked files for machine-specific settings. Use these local files instead:
+
+- `.env` — the admin password, hostname, and other environment values.
+- `data/apps.json` — the shared application directory.
+- `compose.override.yaml` — optional Docker Compose changes, such as different published ports.
+
+The first two are created locally and ignored by Git. To create an override file:
+
+```sh
+sudo -u homebase cp /home/homebase/compose.override.example.yaml /home/homebase/compose.override.yaml
+sudo -u homebase editor /home/homebase/compose.override.yaml
+```
+
+Git never overwrites ignored, untracked files during a clone or pull. Keep local changes in these files, then use the update command above safely.
+
 ## HTTPS
 
 The default configuration is plain HTTP for a LAN-only installation. If you have a hostname that resolves to this server, add this to `/home/homebase/.env`:
@@ -82,6 +99,7 @@ Then rerun the update command above. Caddy will obtain and renew HTTPS certifica
 - `public/` — Homebase interface.
 - `data/apps.json` — created automatically on first run; never commit it.
 - `Caddyfile` and `compose.yaml` — web server and container deployment.
+- `compose.override.example.yaml` — starting point for ignored, machine-specific Compose settings.
 - `deploy/homebase.service` — systemd service for startup.
 
 ## License
