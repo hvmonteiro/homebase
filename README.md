@@ -30,52 +30,35 @@ Create the local configuration, set a long unique admin password, and start Home
 ```sh
 sudo -u homebase cp /home/homebase/.env.example /home/homebase/.env
 sudo -u homebase editor /home/homebase/.env
-sudo -u homebase sh -c 'cd /home/homebase && docker compose up -d --build'
+sudo /home/homebase/scripts/homebase install
 ```
 
 Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
 
 > Docker's `docker` group grants elevated control over the host. Keep membership limited to the dedicated `homebase` account and trusted administrators.
 
-## Start at boot
-
-Install the supplied **user-level** systemd unit after the first successful launch. User lingering keeps the `homebase` user manager running at boot even though the account cannot log in:
-
-```sh
-sudo install -d -o homebase -g homebase /home/homebase/.config/systemd/user
-sudo install -m 644 -o homebase -g homebase \
-  /home/homebase/deploy/homebase.service \
-  /home/homebase/.config/systemd/user/homebase.service
-sudo loginctl enable-linger homebase
-sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) systemctl --user daemon-reload
-sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) systemctl --user enable --now homebase.service
-```
-
-The service starts the existing Docker Compose stack in `homebase`'s systemd user space. Check it with:
-
-```sh
-sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) systemctl --user status homebase.service
-```
-
 ## Manage Homebase
 
 Use the included management script from an administrator shell:
 
 ```sh
+sudo /home/homebase/scripts/homebase install
 sudo /home/homebase/scripts/homebase start
 sudo /home/homebase/scripts/homebase stop
 sudo /home/homebase/scripts/homebase restart
 sudo /home/homebase/scripts/homebase reload
 sudo /home/homebase/scripts/homebase update
+sudo /home/homebase/scripts/homebase status
+sudo /home/homebase/scripts/homebase uninstall
+sudo /home/homebase/scripts/homebase help
 ```
 
-`update` performs a fast-forward-only `git pull`, then rebuilds and restarts the Docker Compose stack. `reload` reapplies the current Compose configuration without stopping the service.
+`install` creates and enables the **user-level** systemd service, enables lingering for `homebase`, builds the initial containers, and starts Homebase at boot. `update` performs a fast-forward-only `git pull`, then rebuilds and restarts the Docker Compose stack. `reload` reapplies the current Compose configuration without stopping the service. `uninstall` stops and removes only the systemd service; it deliberately preserves the repository, local settings, and shared data.
 
 ## Updating
 
 ```sh
-sudo -u homebase git -C /home/homebase pull --ff-only
-sudo -u homebase sh -c 'cd /home/homebase && docker compose up -d --build'
+sudo /home/homebase/scripts/homebase update
 ```
 
 The shared directory is stored in `data/apps.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.

@@ -5,27 +5,28 @@ set -Eeuo pipefail
 readonly SERVICE_USER="homebase"
 readonly INSTALL_DIR="/home/homebase"
 readonly UNIT_NAME="homebase.service"
+readonly UNIT_SOURCE="${INSTALL_DIR}/deploy/${UNIT_NAME}"
+readonly UNIT_DESTINATION="${INSTALL_DIR}/.config/systemd/user/${UNIT_NAME}"
 
 usage() {
   cat <<'EOF'
 Usage: sudo /home/homebase/scripts/homebase <command>
 
 Commands:
+  install   Install, enable, and start the Homebase user service
+  uninstall Stop and remove the Homebase user service; preserves app data
   start     Start Homebase
   stop      Stop Homebase
   restart   Restart Homebase
-  reload    Apply the current Compose configuration without stopping Homebase
+  reload    Reapply the current Compose configuration without stopping Homebase
   update    Pull the latest Git revision and rebuild/restart Homebase
+  status    Show the Homebase user-service status
+  help      Show this help text
 EOF
 }
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "Run this command with sudo." >&2
-  exit 1
-fi
-
-if [[ ! -d ${INSTALL_DIR}/.git ]]; then
-  echo "Homebase was not found at ${INSTALL_DIR}." >&2
   exit 1
 fi
 
@@ -43,13 +44,54 @@ service_command() {
   run_as_service_user /usr/bin/systemctl --user "$1" "${UNIT_NAME}"
 }
 
+require_installation() {
+  if [[ ! -d ${INSTALL_DIR}/.git ]]; then
+    echo "Homebase was not found at ${INSTALL_DIR}." >&2
+    exit 1
+  fi
+}
+
+install_service() {
+  require_installation
+  if [[ ! -f ${UNIT_SOURCE} ]]; then
+    echo "Service definition was not found at ${UNIT_SOURCE}." >&2
+    exit 1
+  fi
+  install -d -o "${SERVICE_USER}" -g "${SERVICE_USER}" "${INSTALL_DIR}/.config/systemd/user"
+  install -m 644 -o "${SERVICE_USER}" -g "${SERVICE_USER}" "${UNIT_SOURCE}" "${UNIT_DESTINATION}"
+  /usr/bin/loginctl enable-linger "${SERVICE_USER}"
+  run_as_service_user /usr/bin/systemctl --user daemon-reload
+  run_as_service_user /usr/bin/docker compose --project-directory "${INSTALL_DIR}" up -d --build
+  service_command enable
+  service_command start
+  echo "Homebase is installed and running as a systemd user service."
+}
+
+uninstall_service() {
+  run_as_service_user /usr/bin/systemctl --user disable --now "${UNIT_NAME}" 2>/dev/null || true
+  rm -f "${UNIT_DESTINATION}"
+  run_as_service_user /usr/bin/systemctl --user daemon-reload
+  echo "Homebase systemd service removed. The repository, local settings, and shared data were preserved."
+}
+
 case "${1:-}" in
+  install)
+    install_service
+    ;;
+  uninstall)
+    uninstall_service
+    ;;
   start|stop|restart|reload)
+    require_installation
     service_command "$1"
     ;;
   update)
+    require_installation
     run_as_service_user /usr/bin/git -C "${INSTALL_DIR}" pull --ff-only
     run_as_service_user /usr/bin/docker compose --project-directory "${INSTALL_DIR}" up -d --build
+    ;;
+  status)
+    service_command status
     ;;
   -h|--help|help|'')
     usage
