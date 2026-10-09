@@ -1,8 +1,3 @@
 # Copy this file to compose.override.yaml for machine-specific Docker changes.
 # The override file is ignored by Git and is merged automatically by Docker Compose.
-#
-# Example:
-# services:
-#   caddy:
-#     ports:
-#       - "8080:80"
+# Configure the Homebase web port with HOMEBASE_PORT in .env, not here.

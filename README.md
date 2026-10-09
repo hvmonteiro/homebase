@@ -5,7 +5,7 @@ Homebase is a shared dashboard for applications running on a home server. Everyo
 ## Requirements
 
 - A Linux server with Git and Docker Engine plus the Docker Compose plugin installed.
-- Ports 80 and 443 available for Homebase's Caddy web server.
+- One free TCP port for Homebase's Caddy web server (default: `8080`).
 
 ## Install on a Linux server
 
@@ -33,7 +33,7 @@ sudo -u homebase editor /home/homebase/.env
 sudo -u homebase sh -c 'cd /home/homebase && docker compose up -d --build'
 ```
 
-Open `http://<server-ip>/` from your home network. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
+Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
 
 > Docker's `docker` group grants elevated control over the host. Keep membership limited to the dedicated `homebase` account and trusted administrators.
 
@@ -72,7 +72,7 @@ Do not modify Git-tracked files for machine-specific settings. Use these local f
 
 - `.env` — the admin password, hostname, and other environment values.
 - `data/apps.json` — the shared application directory.
-- `compose.override.yaml` — optional Docker Compose changes, such as different published ports.
+- `compose.override.yaml` — optional Docker Compose changes.
 
 The first two are created locally and ignored by Git. To create an override file:
 
@@ -118,10 +118,10 @@ sudo -u homebase sh -c 'cd /home/homebase && docker compose logs --tail=100'
 
 ### Is a port already in use or not listening?
 
-Homebase uses host ports 80 and 443 by default. Check which process owns either port:
+Homebase uses the host port from `HOMEBASE_PORT` in `.env` (default: `8080`). Check the configured value:
 
 ```sh
-sudo ss -ltnp '( sport = :80 or sport = :443 )'
+grep '^HOMEBASE_PORT=' /home/homebase/.env
 ```
 
 Check the container state:
@@ -130,26 +130,25 @@ Check the container state:
 sudo -u homebase sh -c 'cd /home/homebase && docker compose ps'
 ```
 
-If another web server already owns port 80 or 443, either route Homebase through that server or create `/home/homebase/compose.override.yaml` with alternate ports:
+If the selected port is already in use, choose another value in `/home/homebase/.env`:
 
-```yaml
-services:
-  caddy:
-    ports:
-      - "8080:80"
+```dotenv
+HOMEBASE_PORT=9443
 ```
 
-Restart Homebase and open `http://<server-ip>:8080/`.
+Then restart Homebase and open `http://<server-ip>:9443/`.
 
 ## HTTPS
 
-The default configuration is plain HTTP for a LAN-only installation. If you have a hostname that resolves to this server, add this to `/home/homebase/.env`:
+The default configuration is plain HTTP on the configurable `HOMEBASE_PORT`, which is suitable for a LAN-only installation or an existing reverse proxy. It deliberately does not claim host ports 80 or 443, allowing Tailscale or another web server to keep using them.
+
+If you want Caddy itself to manage public HTTPS, expose host ports 80 and 443 through a custom Compose deployment and add a public hostname to `/home/homebase/.env`:
 
 ```dotenv
 HOMEBASE_ADDRESS=homebase.example.com
 ```
 
-Then rerun the update command above. Caddy will obtain and renew HTTPS certificates automatically when the hostname is publicly reachable on ports 80 and 443.
+Then rerun the update command above. Caddy can obtain and renew HTTPS certificates when that hostname is publicly reachable on ports 80 and 443. Otherwise, proxy to Homebase's configurable HTTP port from your existing HTTPS service.
 
 ## Project layout
 
