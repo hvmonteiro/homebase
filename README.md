@@ -30,7 +30,7 @@ Create the local configuration, set a long unique admin password, and start Home
 ```sh
 sudo -u homebase cp /home/homebase/.env.example /home/homebase/.env
 sudo -u homebase editor /home/homebase/.env
-sudo -u homebase docker compose -f /home/homebase/compose.yaml up -d --build
+sudo -u homebase sh -c 'cd /home/homebase && docker compose up -d --build'
 ```
 
 Open `http://<server-ip>/` from your home network. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
@@ -61,7 +61,7 @@ sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) systemctl --user st
 
 ```sh
 sudo -u homebase git -C /home/homebase pull --ff-only
-sudo -u homebase docker compose -f /home/homebase/compose.yaml up -d --build
+sudo -u homebase sh -c 'cd /home/homebase && docker compose up -d --build'
 ```
 
 The shared directory is stored in `data/apps.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
@@ -82,6 +82,64 @@ sudo -u homebase editor /home/homebase/compose.override.yaml
 ```
 
 Git never overwrites ignored, untracked files during a clone or pull. Keep local changes in these files, then use the update command above safely.
+
+## Troubleshooting
+
+Run these commands as the `homebase` user—not as `root`—to avoid Git ownership warnings.
+
+### Is the startup service running?
+
+```sh
+sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) \
+  systemctl --user status homebase.service
+```
+
+Start or restart it if necessary:
+
+```sh
+sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) \
+  systemctl --user restart homebase.service
+```
+
+### View service and container logs
+
+```sh
+# User-level systemd service logs
+sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) \
+  journalctl --user -u homebase.service -e
+
+# Follow service logs live
+sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) \
+  journalctl --user -u homebase.service -f
+
+# Homebase and Caddy container logs
+sudo -u homebase sh -c 'cd /home/homebase && docker compose logs --tail=100'
+```
+
+### Is a port already in use or not listening?
+
+Homebase uses host ports 80 and 443 by default. Check which process owns either port:
+
+```sh
+sudo ss -ltnp '( sport = :80 or sport = :443 )'
+```
+
+Check the container state:
+
+```sh
+sudo -u homebase sh -c 'cd /home/homebase && docker compose ps'
+```
+
+If another web server already owns port 80 or 443, either route Homebase through that server or create `/home/homebase/compose.override.yaml` with alternate ports:
+
+```yaml
+services:
+  caddy:
+    ports:
+      - "8080:80"
+```
+
+Restart Homebase and open `http://<server-ip>:8080/`.
 
 ## HTTPS
 
