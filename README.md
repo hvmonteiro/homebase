@@ -6,19 +6,19 @@ Homebase is a shared dashboard for applications running on a home server. Everyo
 
 ### Shared dashboard
 
-<img src="screenshot-01.png" alt="Homebase dashboard" width="760">
+<img src="screenshot-01.png" alt="Homebase dashboard" width="330">
 
 ### Admin sign-in
 
-<img src="screenshot-02.png" alt="Homebase admin sign-in dialog" width="760">
+<img src="screenshot-02.png" alt="Homebase admin sign-in dialog" width="150">
 
 ### Manage applications
 
-<img src="screenshot-03.png" alt="Homebase manage applications dialog" width="760">
+<img src="screenshot-03.png" alt="Homebase manage applications dialog" width="230">
 
 ### Add an application
 
-<img src="screenshot-04.png" alt="Homebase add application dialog" width="760">
+<img src="screenshot-04.png" alt="Homebase add application dialog" width="115">
 
 ## Requirements
 
