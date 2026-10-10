@@ -2,6 +2,24 @@
 
 Homebase is a shared dashboard for applications running on a home server. Everyone can browse and open the same links; the single `admin` account manages them.
 
+## Screenshots
+
+### Shared dashboard
+
+![Homebase dashboard](screenshot-01.png)
+
+### Admin sign-in
+
+![Homebase admin sign-in dialog](screenshot-02.png)
+
+### Manage applications
+
+![Homebase manage applications dialog](screenshot-03.png)
+
+### Add an application
+
+![Homebase add application dialog](screenshot-04.png)
+
 ## Requirements
 
 - A Linux server with Git and Docker Engine plus the Docker Compose plugin installed.
