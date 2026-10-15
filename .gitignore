@@ -2,3 +2,9 @@ node_modules/
 .env
 data/
 compose.override.yaml
+.bash_history
+.config/
+.docker/
+.lesshst
+.viminfo
+.gitconfig
