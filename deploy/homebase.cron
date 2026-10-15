@@ -1,4 +1,4 @@
 # Managed by /home/homebase/manage.sh install-cron.
 # Check GitHub and Docker images every six hours. Run as root because the
 # management command switches safely into the homebase service account.
-17 */6 * * * root /home/homebase/manage.sh update > /dev/null 2>&1
+17 */6 * * * root /home/homebase/manage.sh update >> /var/log/homebase-update.log 2>&1

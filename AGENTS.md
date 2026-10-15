@@ -32,7 +32,7 @@ Use `.env.example` and `compose.override.example.yaml` as tracked templates only
 - Homebase is installed in `/home/homebase`.
 - Manage it with `sudo /home/homebase/manage.sh <command>`.
 - The user service needs systemd lingering enabled so it starts at server boot.
-- `sudo /home/homebase/manage.sh install-cron` installs a six-hour source and Docker-image update check in `/etc/cron.d/homebase`.
+- `sudo /home/homebase/manage.sh install-cron` installs a six-hour source and Docker-image update check in `/etc/cron.d/homebase`, plus rotation for `/var/log/homebase-update.log`.
 - Do not claim that Homebase owns host ports 80 or 443. The default public port is `8080`; Tailscale or another reverse proxy may use 443.
 
 ## UI conventions

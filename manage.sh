@@ -9,6 +9,8 @@ readonly UNIT_SOURCE="${INSTALL_DIR}/deploy/${UNIT_NAME}"
 readonly UNIT_DESTINATION="${INSTALL_DIR}/.config/systemd/user/${UNIT_NAME}"
 readonly CRON_SOURCE="${INSTALL_DIR}/deploy/homebase.cron"
 readonly CRON_DESTINATION="/etc/cron.d/homebase"
+readonly LOGROTATE_SOURCE="${INSTALL_DIR}/deploy/homebase.logrotate"
+readonly LOGROTATE_DESTINATION="/etc/logrotate.d/homebase"
 
 usage() {
   cat <<'EOF'
@@ -22,8 +24,8 @@ Commands:
   restart   Restart Homebase
   reload    Reapply the current Compose configuration without stopping Homebase
   update    Check GitHub, then update the app and Docker images when available
-  install-cron   Run the update check every six hours through cron
-  uninstall-cron Remove Homebase's cron update check
+  install-cron   Run the update check every six hours through cron and rotate its log
+  uninstall-cron Remove Homebase's cron update check and log rotation policy
   status    Show the Homebase user-service status
   help      Show this help text
 EOF
@@ -102,13 +104,19 @@ install_cron() {
     echo "Cron definition was not found at ${CRON_SOURCE}." >&2
     exit 1
   fi
+  if [[ ! -f ${LOGROTATE_SOURCE} ]]; then
+    echo "Log rotation definition was not found at ${LOGROTATE_SOURCE}." >&2
+    exit 1
+  fi
   install -m 644 "${CRON_SOURCE}" "${CRON_DESTINATION}"
+  install -m 644 "${LOGROTATE_SOURCE}" "${LOGROTATE_DESTINATION}"
   echo "Homebase will check for source and Docker image updates every six hours."
 }
 
 uninstall_cron() {
   rm -f "${CRON_DESTINATION}"
-  echo "Homebase's cron update check was removed."
+  rm -f "${LOGROTATE_DESTINATION}"
+  echo "Homebase's cron update check and log rotation policy were removed."
 }
 
 case "${1:-}" in
