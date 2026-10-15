@@ -91,7 +91,7 @@ Install the included cron job to check for GitHub revisions and Docker image upd
 sudo /home/homebase/manage.sh install-cron
 ```
 
-It writes to `/etc/cron.d/homebase` and records its output in `/var/log/homebase-update.log`. Remove it at any time without affecting Homebase or its data:
+It writes its schedule to `/etc/cron.d/homebase` and discards routine output. Remove it at any time without affecting Homebase or its data:
 
 ```sh
 sudo /home/homebase/manage.sh uninstall-cron
