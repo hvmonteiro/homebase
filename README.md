@@ -66,12 +66,14 @@ sudo /home/homebase/homebase stop
 sudo /home/homebase/homebase restart
 sudo /home/homebase/homebase reload
 sudo /home/homebase/homebase update
+sudo /home/homebase/homebase install-cron
+sudo /home/homebase/homebase uninstall-cron
 sudo /home/homebase/homebase status
 sudo /home/homebase/homebase uninstall
 sudo /home/homebase/homebase help
 ```
 
-`install` creates and enables the **user-level** systemd service, enables lingering for `homebase`, builds the initial containers, and starts Homebase at boot. `update` performs a fast-forward-only `git pull`, then rebuilds and restarts the Docker Compose stack. `reload` reapplies the current Compose configuration without stopping the service. `uninstall` stops and removes only the systemd service; it deliberately preserves the repository, local settings, and shared data.
+`install` creates and enables the **user-level** systemd service, enables lingering for `homebase`, builds the initial containers, and starts Homebase at boot. `update` checks GitHub first, fast-forwards only when a new revision exists, pulls available Docker images, then applies the Compose stack. `reload` reapplies the current Compose configuration without stopping the service. `uninstall` stops and removes only the systemd service; it deliberately preserves the repository, local settings, and shared data.
 
 ## Updating
 
@@ -80,6 +82,20 @@ sudo /home/homebase/homebase update
 ```
 
 The shared directory is stored in `data/apps.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
+
+### Automatic updates with cron
+
+Install the included cron job to check for GitHub revisions and Docker image updates every six hours:
+
+```sh
+sudo /home/homebase/homebase install-cron
+```
+
+It writes to `/etc/cron.d/homebase` and records its output in `/var/log/homebase-update.log`. Remove it at any time without affecting Homebase or its data:
+
+```sh
+sudo /home/homebase/homebase uninstall-cron
+```
 
 ## Local customizations are preserved
 

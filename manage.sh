@@ -7,6 +7,8 @@ readonly INSTALL_DIR="/home/homebase"
 readonly UNIT_NAME="homebase.service"
 readonly UNIT_SOURCE="${INSTALL_DIR}/deploy/${UNIT_NAME}"
 readonly UNIT_DESTINATION="${INSTALL_DIR}/.config/systemd/user/${UNIT_NAME}"
+readonly CRON_SOURCE="${INSTALL_DIR}/deploy/homebase.cron"
+readonly CRON_DESTINATION="/etc/cron.d/homebase"
 
 usage() {
   cat <<'EOF'
@@ -19,7 +21,9 @@ Commands:
   stop      Stop Homebase
   restart   Restart Homebase
   reload    Reapply the current Compose configuration without stopping Homebase
-  update    Pull the latest Git revision and rebuild/restart Homebase
+  update    Check GitHub, then update the app and Docker images when available
+  install-cron   Run the update check every six hours through cron
+  uninstall-cron Remove Homebase's cron update check
   status    Show the Homebase user-service status
   help      Show this help text
 EOF
@@ -74,6 +78,39 @@ uninstall_service() {
   echo "Homebase systemd service removed. The repository, local settings, and shared data were preserved."
 }
 
+update_homebase() {
+  require_installation
+  run_as_service_user /usr/bin/git -C "${INSTALL_DIR}" fetch --quiet origin
+  local current_revision remote_revision
+  current_revision="$(run_as_service_user /usr/bin/git -C "${INSTALL_DIR}" rev-parse HEAD)"
+  remote_revision="$(run_as_service_user /usr/bin/git -C "${INSTALL_DIR}" rev-parse '@{u}')"
+
+  if [[ ${current_revision} != "${remote_revision}" ]]; then
+    run_as_service_user /usr/bin/git -C "${INSTALL_DIR}" pull --ff-only
+    echo "Homebase source updated."
+  else
+    echo "Homebase source is already current."
+  fi
+
+  run_as_service_user /usr/bin/docker compose --project-directory "${INSTALL_DIR}" pull
+  run_as_service_user /usr/bin/docker compose --project-directory "${INSTALL_DIR}" up -d --build
+}
+
+install_cron() {
+  require_installation
+  if [[ ! -f ${CRON_SOURCE} ]]; then
+    echo "Cron definition was not found at ${CRON_SOURCE}." >&2
+    exit 1
+  fi
+  install -m 644 "${CRON_SOURCE}" "${CRON_DESTINATION}"
+  echo "Homebase will check for source and Docker image updates every six hours."
+}
+
+uninstall_cron() {
+  rm -f "${CRON_DESTINATION}"
+  echo "Homebase's cron update check was removed."
+}
+
 case "${1:-}" in
   install)
     install_service
@@ -86,9 +123,13 @@ case "${1:-}" in
     service_command "$1"
     ;;
   update)
-    require_installation
-    run_as_service_user /usr/bin/git -C "${INSTALL_DIR}" pull --ff-only
-    run_as_service_user /usr/bin/docker compose --project-directory "${INSTALL_DIR}" up -d --build
+    update_homebase
+    ;;
+  install-cron)
+    install_cron
+    ;;
+  uninstall-cron)
+    uninstall_cron
     ;;
   status)
     service_command status
