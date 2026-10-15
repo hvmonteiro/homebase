@@ -48,7 +48,7 @@ Create the local configuration, set a long unique admin password, and start Home
 ```sh
 sudo -u homebase cp /home/homebase/.env.example /home/homebase/.env
 sudo -u homebase editor /home/homebase/.env
-sudo /home/homebase/homebase install
+sudo /home/homebase/manage.sh install
 ```
 
 Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
@@ -60,17 +60,17 @@ Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOM
 Use the included management script from an administrator shell:
 
 ```sh
-sudo /home/homebase/homebase install
-sudo /home/homebase/homebase start
-sudo /home/homebase/homebase stop
-sudo /home/homebase/homebase restart
-sudo /home/homebase/homebase reload
-sudo /home/homebase/homebase update
-sudo /home/homebase/homebase install-cron
-sudo /home/homebase/homebase uninstall-cron
-sudo /home/homebase/homebase status
-sudo /home/homebase/homebase uninstall
-sudo /home/homebase/homebase help
+sudo /home/homebase/manage.sh install
+sudo /home/homebase/manage.sh start
+sudo /home/homebase/manage.sh stop
+sudo /home/homebase/manage.sh restart
+sudo /home/homebase/manage.sh reload
+sudo /home/homebase/manage.sh update
+sudo /home/homebase/manage.sh install-cron
+sudo /home/homebase/manage.sh uninstall-cron
+sudo /home/homebase/manage.sh status
+sudo /home/homebase/manage.sh uninstall
+sudo /home/homebase/manage.sh help
 ```
 
 `install` creates and enables the **user-level** systemd service, enables lingering for `homebase`, builds the initial containers, and starts Homebase at boot. `update` checks GitHub first, fast-forwards only when a new revision exists, pulls available Docker images, then applies the Compose stack. `reload` reapplies the current Compose configuration without stopping the service. `uninstall` stops and removes only the systemd service; it deliberately preserves the repository, local settings, and shared data.
@@ -78,7 +78,7 @@ sudo /home/homebase/homebase help
 ## Updating
 
 ```sh
-sudo /home/homebase/homebase update
+sudo /home/homebase/manage.sh update
 ```
 
 The shared directory is stored in `data/apps.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
@@ -88,13 +88,13 @@ The shared directory is stored in `data/apps.json`. The `data/` directory is ign
 Install the included cron job to check for GitHub revisions and Docker image updates every six hours:
 
 ```sh
-sudo /home/homebase/homebase install-cron
+sudo /home/homebase/manage.sh install-cron
 ```
 
 It writes to `/etc/cron.d/homebase` and records its output in `/var/log/homebase-update.log`. Remove it at any time without affecting Homebase or its data:
 
 ```sh
-sudo /home/homebase/homebase uninstall-cron
+sudo /home/homebase/manage.sh uninstall-cron
 ```
 
 ## Local customizations are preserved

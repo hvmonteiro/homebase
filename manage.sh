@@ -12,7 +12,7 @@ readonly CRON_DESTINATION="/etc/cron.d/homebase"
 
 usage() {
   cat <<'EOF'
-Usage: sudo /home/homebase/homebase <command>
+Usage: sudo /home/homebase/manage.sh <command>
 
 Commands:
   install   Install, enable, and start the Homebase user service

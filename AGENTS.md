@@ -14,7 +14,7 @@ Repository: `https://github.com/hvmonteiro/homebase.git`
 - `data/apps.json` is the shared application directory at runtime. It is local, ignored by Git, and must never be replaced by updates.
 - `compose.yaml` runs the Node application behind Caddy. The externally mapped port comes from `HOMEBASE_PORT` in `.env`.
 - `deploy/homebase.service` is a **user-level** systemd unit, run by the `homebase` account.
-- `homebase` at the repository root is the administrative command for installing, controlling, updating, and uninstalling the user service.
+- `manage.sh` at the repository root is the administrative command for installing, controlling, updating, and uninstalling the user service.
 
 ## Local configuration and data safety
 
@@ -30,9 +30,9 @@ Use `.env.example` and `compose.override.example.yaml` as tracked templates only
 
 - The Linux service account is `homebase`, with home directory `/home/homebase` and no interactive login shell.
 - Homebase is installed in `/home/homebase`.
-- Manage it with `sudo /home/homebase/homebase <command>`.
+- Manage it with `sudo /home/homebase/manage.sh <command>`.
 - The user service needs systemd lingering enabled so it starts at server boot.
-- `sudo /home/homebase/homebase install-cron` installs a six-hour source and Docker-image update check in `/etc/cron.d/homebase`.
+- `sudo /home/homebase/manage.sh install-cron` installs a six-hour source and Docker-image update check in `/etc/cron.d/homebase`.
 - Do not claim that Homebase owns host ports 80 or 443. The default public port is `8080`; Tailscale or another reverse proxy may use 443.
 
 ## UI conventions
