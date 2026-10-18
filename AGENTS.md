@@ -45,6 +45,7 @@ Use `.env.example` and `compose.override.example.yaml` as tracked templates only
 - Use in-app dialogs for management and destructive-action confirmation; do not use browser `confirm()` dialogs.
 - The editor should suggest existing categories while allowing a new category, and icons are chosen with the emoji picker rather than typed manually.
 - Keep the management table visible behind nested add/edit dialogs; closing an editor returns to the manager.
+- Dashboard layout is a shared setting with three mutually exclusive options: ungrouped, grouped by category, or categories as tabs.
 
 ## Validation and Git workflow
 

@@ -103,7 +103,7 @@ Do not modify Git-tracked files for machine-specific settings. Use these local f
 
 - `.env` — the admin password, hostname, and other environment values.
 - `data/apps.json` — the shared application directory.
-- `data/settings.json` — shared dashboard preferences, including category grouping.
+- `data/settings.json` — shared dashboard preferences, including ungrouped, grouped, or tabbed category layouts.
 - `compose.override.yaml` — optional Docker Compose changes.
 
 The first two are created locally and ignored by Git. To create an override file:

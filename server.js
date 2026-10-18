@@ -13,7 +13,7 @@ const settingsPath = path.join(dataDir, 'settings.json');
 const adminPassword = process.env.ADMIN_PASSWORD;
 const sessions = new Map();
 let apps = [];
-let settings = { groupByCategory: false };
+let settings = { layout: 'ungrouped' };
 
 if (!adminPassword || adminPassword.length < 12) {
   throw new Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters.');
@@ -43,7 +43,10 @@ async function loadSettings() {
   try {
     const content = await readFile(settingsPath, 'utf8');
     const parsed = JSON.parse(content);
-    settings = { groupByCategory: Boolean(parsed?.groupByCategory) };
+    const layout = ['ungrouped', 'grouped', 'tabs'].includes(parsed?.layout)
+      ? parsed.layout
+      : parsed?.groupByCategory ? 'grouped' : 'ungrouped';
+    settings = { layout };
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     await persistSettings();
@@ -105,8 +108,8 @@ app.post('/api/logout', { preHandler: requireAdmin }, async (_request, reply) =>
 });
 
 app.put('/api/settings', { preHandler: requireAdmin }, async (request, reply) => {
-  if (typeof request.body?.groupByCategory !== 'boolean') return reply.code(400).send({ error: 'A grouping preference is required.' });
-  settings = { groupByCategory: request.body.groupByCategory };
+  if (!['ungrouped', 'grouped', 'tabs'].includes(request.body?.layout)) return reply.code(400).send({ error: 'A valid layout preference is required.' });
+  settings = { layout: request.body.layout };
   await persistSettings();
   return settings;
 });
