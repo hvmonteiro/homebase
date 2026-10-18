@@ -9,9 +9,11 @@ import fastifyStatic from '@fastify/static';
 const port = Number(process.env.PORT || 3000);
 const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const databasePath = path.join(dataDir, 'apps.json');
+const settingsPath = path.join(dataDir, 'settings.json');
 const adminPassword = process.env.ADMIN_PASSWORD;
 const sessions = new Map();
 let apps = [];
+let settings = { groupByCategory: false };
 
 if (!adminPassword || adminPassword.length < 12) {
   throw new Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters.');
@@ -35,6 +37,21 @@ async function persistApps() {
   // The file is tiny and writes are rare; a synchronous replace keeps updates
   // serialized in this single-process home-server service.
   writeFileSync(databasePath, `${JSON.stringify(apps, null, 2)}\n`, 'utf8');
+}
+
+async function loadSettings() {
+  try {
+    const content = await readFile(settingsPath, 'utf8');
+    const parsed = JSON.parse(content);
+    settings = { groupByCategory: Boolean(parsed?.groupByCategory) };
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    await persistSettings();
+  }
+}
+
+async function persistSettings() {
+  writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
 }
 
 function normalizeApp(input) {
@@ -66,6 +83,7 @@ await app.register(cookie);
 await app.register(fastifyStatic, { root: path.join(process.cwd(), 'public'), prefix: '/', wildcard: false });
 
 app.get('/api/apps', async () => apps);
+app.get('/api/settings', async () => settings);
 app.get('/api/session', async (request) => ({ authenticated: Boolean(sessionFor(request)), username: 'admin' }));
 
 app.post('/api/login', async (request, reply) => {
@@ -84,6 +102,13 @@ app.post('/api/logout', { preHandler: requireAdmin }, async (_request, reply) =>
   sessions.delete(_request.cookies.homebase_session);
   reply.clearCookie('homebase_session', { path: '/' });
   return reply.code(204).send();
+});
+
+app.put('/api/settings', { preHandler: requireAdmin }, async (request, reply) => {
+  if (typeof request.body?.groupByCategory !== 'boolean') return reply.code(400).send({ error: 'A grouping preference is required.' });
+  settings = { groupByCategory: request.body.groupByCategory };
+  await persistSettings();
+  return settings;
 });
 
 app.post('/api/apps', { preHandler: requireAdmin }, async (request, reply) => {
@@ -114,4 +139,5 @@ app.delete('/api/apps/:id', { preHandler: requireAdmin }, async (request, reply)
 });
 
 await loadApps();
+await loadSettings();
 await app.listen({ port, host: '0.0.0.0' });

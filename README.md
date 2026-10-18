@@ -81,7 +81,7 @@ sudo /home/homebase/manage.sh help
 sudo /home/homebase/manage.sh update
 ```
 
-The shared directory is stored in `data/apps.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
+The shared directory is stored in `data/apps.json`, and dashboard preferences are stored in `data/settings.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
 
 ### Automatic updates with cron
 
@@ -103,6 +103,7 @@ Do not modify Git-tracked files for machine-specific settings. Use these local f
 
 - `.env` — the admin password, hostname, and other environment values.
 - `data/apps.json` — the shared application directory.
+- `data/settings.json` — shared dashboard preferences, including category grouping.
 - `compose.override.yaml` — optional Docker Compose changes.
 
 The first two are created locally and ignored by Git. To create an override file:

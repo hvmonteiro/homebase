@@ -11,7 +11,7 @@ Repository: `https://github.com/hvmonteiro/homebase.git`
 - `server.js` is the Fastify server and JSON API.
 - `public/index.html` is the complete browser UI: HTML, CSS, and browser-side JavaScript live together intentionally.
 - `public/favicon.svg` is the Homebase favicon.
-- `data/apps.json` is the shared application directory at runtime. It is local, ignored by Git, and must never be replaced by updates.
+- `data/apps.json` is the shared application directory and `data/settings.json` holds shared dashboard preferences at runtime. Both are local, ignored by Git, and must never be replaced by updates.
 - `compose.yaml` runs the Node application behind Caddy. The externally mapped port comes from `HOMEBASE_PORT` in `.env`.
 - `deploy/homebase.service` is a **user-level** systemd unit, run by the `homebase` account.
 - `manage.sh` at the repository root is the administrative command for installing, controlling, updating, and uninstalling the user service.
@@ -22,6 +22,7 @@ Never overwrite, delete, or commit these local deployment files:
 
 - `.env` — admin password and machine-specific settings.
 - `data/apps.json` — shared application links.
+- `data/settings.json` — shared dashboard preferences.
 - `compose.override.yaml` — optional machine-specific Compose customization.
 
 Use `.env.example` and `compose.override.example.yaml` as tracked templates only. Keep all site-specific changes in the ignored files above so `git pull --ff-only` remains safe.
