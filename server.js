@@ -15,6 +15,9 @@ const adminPassword = process.env.ADMIN_PASSWORD;
 const sessions = new Map();
 let apps = [];
 let settings = { layout: 'ungrouped' };
+let healthCache = [];
+let healthCacheAt = 0;
+let healthRefresh;
 
 if (!adminPassword || adminPassword.length < 12) {
   throw new Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters.');
@@ -100,6 +103,50 @@ async function retrieveFavicon(applicationUrl, id) {
   }
 }
 
+async function refreshApplicationHealth() {
+  // A browser cannot reliably probe private-server URLs because of CORS and
+  // mixed-content restrictions. Do the probes here instead, where Homebase is
+  // running on the same network as the services it lists.
+  if (healthRefresh) return healthRefresh;
+  if (Date.now() - healthCacheAt < 55_000) return healthCache;
+
+  healthRefresh = (async () => {
+    let iconsChanged = false;
+    const results = await Promise.all(apps.map(async (entry) => {
+      let state = 'offline';
+      try {
+        const response = await fetch(entry.url, {
+          redirect: 'follow',
+          signal: AbortSignal.timeout(7000),
+        });
+        // An authenticated or otherwise protected app is still reachable.
+        state = response.status < 500 ? 'online' : 'offline';
+        response.body?.cancel();
+      } catch {
+        // Keep the service marked offline when its URL cannot be contacted.
+      }
+
+      const favicon = await retrieveFavicon(entry.url, entry.id);
+      if (favicon && favicon !== entry.favicon) {
+        entry.favicon = favicon;
+        iconsChanged = true;
+      }
+      return { id: entry.id, state, favicon: entry.favicon || '' };
+    }));
+
+    if (iconsChanged) await persistApps();
+    healthCache = results;
+    healthCacheAt = Date.now();
+    return results;
+  })();
+
+  try {
+    return await healthRefresh;
+  } finally {
+    healthRefresh = null;
+  }
+}
+
 function sessionFor(request) {
   const token = request.cookies.homebase_session;
   if (!token) return null;
@@ -119,6 +166,7 @@ await app.register(fastifyStatic, { root: path.join(process.cwd(), 'public'), pr
 await app.register(fastifyStatic, { root: iconDir, prefix: '/app-icons/', wildcard: false, decorateReply: false });
 
 app.get('/api/apps', async () => apps);
+app.get('/api/apps/health', async () => refreshApplicationHealth());
 app.get('/api/settings', async () => settings);
 app.get('/api/session', async (request) => ({ authenticated: Boolean(sessionFor(request)), username: 'admin' }));
 
@@ -154,6 +202,7 @@ app.post('/api/apps', { preHandler: requireAdmin }, async (request, reply) => {
   entry.favicon = await retrieveFavicon(entry.url, entry.id);
   apps = [entry, ...apps];
   await persistApps();
+  healthCacheAt = 0;
   return reply.code(201).send(entry);
 });
 
@@ -166,6 +215,7 @@ app.put('/api/apps/:id', { preHandler: requireAdmin }, async (request, reply) =>
   entry.favicon = await retrieveFavicon(entry.url, entry.id) || apps[index].favicon || '';
   apps[index] = entry;
   await persistApps();
+  healthCacheAt = 0;
   return apps[index];
 });
 
@@ -174,6 +224,7 @@ app.delete('/api/apps/:id', { preHandler: requireAdmin }, async (request, reply)
   apps = apps.filter((entry) => entry.id !== request.params.id);
   if (apps.length === before) return reply.code(404).send({ error: 'Application not found.' });
   await persistApps();
+  healthCacheAt = 0;
   return reply.code(204).send();
 });
 
