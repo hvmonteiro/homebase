@@ -10,6 +10,7 @@ const port = Number(process.env.PORT || 3000);
 const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const databasePath = path.join(dataDir, 'apps.json');
 const settingsPath = path.join(dataDir, 'settings.json');
+const iconDir = path.join(dataDir, 'icons');
 const adminPassword = process.env.ADMIN_PASSWORD;
 const sessions = new Map();
 let apps = [];
@@ -21,6 +22,7 @@ if (!adminPassword || adminPassword.length < 12) {
 
 async function loadApps() {
   await mkdir(dataDir, { recursive: true });
+  await mkdir(iconDir, { recursive: true });
   try {
     const content = await readFile(databasePath, 'utf8');
     const parsed = JSON.parse(content);
@@ -69,6 +71,35 @@ function normalizeApp(input) {
   return { name, category, url, description, icon, color };
 }
 
+const faviconExtensions = new Map([
+  ['image/png', 'png'],
+  ['image/jpeg', 'jpg'],
+  ['image/webp', 'webp'],
+  ['image/x-icon', 'ico'],
+  ['image/vnd.microsoft.icon', 'ico'],
+]);
+
+async function retrieveFavicon(applicationUrl, id) {
+  try {
+    const faviconUrl = new URL('/favicon.ico', applicationUrl);
+    const response = await fetch(faviconUrl, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(5000),
+      headers: { accept: 'image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon' },
+    });
+    const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+    const extension = faviconExtensions.get(contentType);
+    if (!response.ok || !extension) return '';
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!bytes.length || bytes.length > 1024 * 1024) return '';
+    const filename = `${id}.${extension}`;
+    writeFileSync(path.join(iconDir, filename), bytes);
+    return `/app-icons/${filename}`;
+  } catch {
+    return '';
+  }
+}
+
 function sessionFor(request) {
   const token = request.cookies.homebase_session;
   if (!token) return null;
@@ -82,8 +113,10 @@ async function requireAdmin(request, reply) {
 }
 
 const app = Fastify({ logger: true, trustProxy: process.env.TRUST_PROXY === 'true' });
+await mkdir(iconDir, { recursive: true });
 await app.register(cookie);
 await app.register(fastifyStatic, { root: path.join(process.cwd(), 'public'), prefix: '/', wildcard: false });
+await app.register(fastifyStatic, { root: iconDir, prefix: '/app-icons/', wildcard: false, decorateReply: false });
 
 app.get('/api/apps', async () => apps);
 app.get('/api/settings', async () => settings);
@@ -118,6 +151,7 @@ app.post('/api/apps', { preHandler: requireAdmin }, async (request, reply) => {
   const values = normalizeApp(request.body);
   if (!values) return reply.code(400).send({ error: 'Name, category, a valid URL and a six-digit colour are required.' });
   const entry = { id: crypto.randomUUID(), ...values };
+  entry.favicon = await retrieveFavicon(entry.url, entry.id);
   apps = [entry, ...apps];
   await persistApps();
   return reply.code(201).send(entry);
@@ -128,7 +162,9 @@ app.put('/api/apps/:id', { preHandler: requireAdmin }, async (request, reply) =>
   const values = normalizeApp(request.body);
   if (index < 0) return reply.code(404).send({ error: 'Application not found.' });
   if (!values) return reply.code(400).send({ error: 'Name, category, a valid URL and a six-digit colour are required.' });
-  apps[index] = { id: apps[index].id, ...values };
+  const entry = { id: apps[index].id, ...values };
+  entry.favicon = await retrieveFavicon(entry.url, entry.id) || apps[index].favicon || '';
+  apps[index] = entry;
   await persistApps();
   return apps[index];
 });

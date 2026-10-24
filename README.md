@@ -81,7 +81,7 @@ sudo /home/homebase/manage.sh help
 sudo /home/homebase/manage.sh update
 ```
 
-The shared directory is stored in `data/apps.json`, and dashboard preferences are stored in `data/settings.json`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
+The shared directory is stored in `data/apps.json`, dashboard preferences are stored in `data/settings.json`, and retrieved application favicons are saved in `data/icons/`. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
 
 ### Automatic updates with cron
 
