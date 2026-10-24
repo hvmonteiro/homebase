@@ -5,6 +5,7 @@ set -Eeuo pipefail
 readonly SERVICE_USER="homebase"
 readonly INSTALL_DIR="/home/homebase"
 readonly UNIT_NAME="homebase.service"
+readonly CONTAINER="homebase-homebase-1"
 readonly UNIT_SOURCE="${INSTALL_DIR}/deploy/${UNIT_NAME}"
 readonly UNIT_DESTINATION="${INSTALL_DIR}/.config/systemd/user/${UNIT_NAME}"
 readonly CRON_SOURCE="${INSTALL_DIR}/deploy/homebase.cron"
@@ -23,6 +24,7 @@ Commands:
   stop      Stop Homebase
   restart   Restart Homebase
   reload    Reapply the current Compose configuration without stopping Homebase
+  showlog   Follow the latest container logs
   update    Check GitHub, then update the app and Docker images when available
   install-cron   Run the update check every six hours through cron and rotate its log
   uninstall-cron Remove Homebase's cron update check and log rotation policy
@@ -48,6 +50,10 @@ run_as_service_user() {
 
 service_command() {
   run_as_service_user /usr/bin/systemctl --user "$1" "${UNIT_NAME}"
+}
+
+container_exists() {
+    docker container inspect "${CONTAINER}" >/dev/null 2>&1
 }
 
 require_installation() {
@@ -129,6 +135,10 @@ case "${1:-}" in
   start|stop|restart|reload)
     require_installation
     service_command "$1"
+    ;;
+  showlog)
+    container_exists || { echo "ERROR: Container '${CONTAINER}' does not exist." >&2; exit 1; }
+    docker logs --tail 100 --follow "${CONTAINER}"
     ;;
   update)
     update_homebase
