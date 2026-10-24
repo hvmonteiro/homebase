@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
+import http from 'node:http';
+import https from 'node:https';
 import path from 'node:path';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
@@ -103,6 +105,55 @@ async function retrieveFavicon(applicationUrl, id) {
   }
 }
 
+function probeUrl(applicationUrl, redirectsRemaining = 5) {
+  return new Promise((resolve) => {
+    let url;
+    try {
+      url = new URL(applicationUrl);
+    } catch {
+      resolve('offline');
+      return;
+    }
+
+    const transport = url.protocol === 'https:' ? https : url.protocol === 'http:' ? http : null;
+    if (!transport) {
+      resolve('offline');
+      return;
+    }
+
+    let settled = false;
+    const finish = (state) => {
+      if (settled) return;
+      settled = true;
+      resolve(state);
+    };
+    const request = transport.request(url, {
+      method: 'GET',
+      timeout: 7000,
+      headers: { 'user-agent': 'Homebase health check' },
+      // Home servers commonly use a locally issued HTTPS certificate. The
+      // indicator reports reachability, not certificate trust, so accept it.
+      rejectUnauthorized: false,
+    }, (response) => {
+      const location = response.headers.location;
+      const isRedirect = response.statusCode >= 300 && response.statusCode < 400 && location;
+      response.resume();
+      if (isRedirect && redirectsRemaining > 0) {
+        try {
+          finish(probeUrl(new URL(location, url).toString(), redirectsRemaining - 1));
+        } catch {
+          finish('offline');
+        }
+        return;
+      }
+      finish(response.statusCode < 500 ? 'online' : 'offline');
+    });
+    request.on('timeout', () => request.destroy());
+    request.on('error', () => finish('offline'));
+    request.end();
+  });
+}
+
 async function refreshApplicationHealth() {
   // A browser cannot reliably probe private-server URLs because of CORS and
   // mixed-content restrictions. Do the probes here instead, where Homebase is
@@ -113,18 +164,7 @@ async function refreshApplicationHealth() {
   healthRefresh = (async () => {
     let iconsChanged = false;
     const results = await Promise.all(apps.map(async (entry) => {
-      let state = 'offline';
-      try {
-        const response = await fetch(entry.url, {
-          redirect: 'follow',
-          signal: AbortSignal.timeout(7000),
-        });
-        // An authenticated or otherwise protected app is still reachable.
-        state = response.status < 500 ? 'online' : 'offline';
-        response.body?.cancel();
-      } catch {
-        // Keep the service marked offline when its URL cannot be contacted.
-      }
+      const state = await probeUrl(entry.url);
 
       const favicon = await retrieveFavicon(entry.url, entry.id);
       if (favicon && favicon !== entry.favicon) {
