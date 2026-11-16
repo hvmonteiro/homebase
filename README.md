@@ -167,6 +167,8 @@ sudo -u homebase XDG_RUNTIME_DIR=/run/user/$(id -u homebase) \
 sudo -u homebase sh -c 'cd /home/homebase && docker compose logs --tail=100'
 ```
 
+Failed dashboard and admin password attempts are recorded as warning entries in these logs; passwords are never logged.
+
 ### Is a port already in use or not listening?
 
 Homebase uses the host port from `HOMEBASE_PORT` in `.env` (default: `8080`). Check the configured value:

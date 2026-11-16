@@ -254,7 +254,10 @@ app.post('/api/login', async (request, reply) => {
   const adminMatch = matchesPassword(password, adminPassword);
   const guestMatch = Boolean(guestPassword) && matchesPassword(password, guestPassword);
   const adminOnly = Boolean(request.body?.adminOnly);
-  if (!adminMatch && (!guestMatch || adminOnly)) return reply.code(401).send({ error: 'Incorrect password.' });
+  if (!adminMatch && (!guestMatch || adminOnly)) {
+    request.log.warn({ event: 'authentication_failed', requestedRole: adminOnly ? 'admin' : 'viewer' }, 'Failed authentication attempt');
+    return reply.code(401).send({ error: 'Incorrect password.' });
+  }
   const role = adminMatch ? 'admin' : 'guest';
   const token = crypto.randomBytes(32).toString('base64url');
   sessions.set(token, { role, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
