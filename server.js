@@ -89,12 +89,13 @@ function normalizeApp(input) {
   const name = String(input?.name || '').trim().slice(0, 48);
   const category = String(input?.category || '').trim().slice(0, 28);
   const description = String(input?.description || '').trim().slice(0, 120);
-  const icon = String(input?.icon || '').trim().slice(0, 2);
+  const icon = Array.from(String(input?.icon || '').trim()).slice(0, 2).join('');
+  const iconMode = input?.iconMode === 'emoji' ? 'emoji' : 'favicon';
   const color = String(input?.color || '#5a8cf0');
   let url;
   try { url = new URL(String(input?.url || '').trim()).toString(); } catch { url = ''; }
   if (!name || !category || !url || !/^#[0-9a-fA-F]{6}$/.test(color)) return null;
-  return { name, category, url, description, icon, color };
+  return { name, category, url, description, icon, iconMode, color };
 }
 
 const faviconExtensions = new Map([
