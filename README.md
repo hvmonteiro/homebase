@@ -51,9 +51,9 @@ sudo -u homebase editor /home/homebase/.env
 sudo /home/homebase/manage.sh install
 ```
 
-Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
+Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. `ADMIN_PASSWORD` is used only on the first start to create the local, salted admin-password hash. Use the top-right `⋮` menu and sign in as `admin` to manage applications and settings.
 
-To require a password before anyone can view the dashboard, set `GUEST_PASSWORD` to a separate password of at least 12 characters in `.env`. Leave it empty to keep the dashboard visible on your home network. Guest sign-in allows browsing only; the `ADMIN_PASSWORD` remains required to manage applications.
+Guest access, dashboard presentation, refresh interval, and dashboard layout are managed in **⋮ → Settings**. Guest sign-in allows browsing only; the admin account remains required to manage Homebase.
 
 > Docker's `docker` group grants elevated control over the host. Keep membership limited to the dedicated `homebase` account and trusted administrators.
 
@@ -83,7 +83,7 @@ sudo /home/homebase/manage.sh help
 sudo /home/homebase/manage.sh update
 ```
 
-The shared directory is stored in `data/apps.json`, dashboard preferences are stored in `data/settings.json`, and retrieved application favicons are saved in `data/icons/`. Homebase checks each HTTP or HTTPS application from the server every minute and refreshes any available favicon at the same time. Locally issued HTTPS certificates are accepted for the reachability indicator. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
+The shared directory is stored in `data/apps.json`, shared settings in `data/settings.json`, password hashes in `data/auth.json`, and retrieved application favicons in `data/icons/`. Homebase checks each HTTP or HTTPS application from the server at the configured interval and refreshes any available favicon at the same time. Locally issued HTTPS certificates are accepted for the reachability indicator. The `data/` directory is ignored by Git and bind-mounted into the application container, so updates do **not** replace it. Back up this directory regularly.
 
 ### Automatic updates with cron
 
@@ -103,9 +103,10 @@ sudo /home/homebase/manage.sh uninstall-cron
 
 Do not modify Git-tracked files for machine-specific settings. Use these local files instead:
 
-- `.env` — the admin password, hostname, and other environment values.
+- `.env` — first-run password bootstrap, hostname, ports, and other runtime values.
 - `data/apps.json` — the shared application directory.
-- `data/settings.json` — shared dashboard preferences, including ungrouped, grouped, or tabbed category layouts.
+- `data/settings.json` — shared dashboard presentation and layout preferences.
+- `data/auth.json` — salted admin and optional guest password hashes.
 - `compose.override.yaml` — optional Docker Compose changes.
 
 The first two are created locally and ignored by Git. To create an override file:
@@ -117,22 +118,11 @@ sudo -u homebase editor /home/homebase/compose.override.yaml
 
 Git never overwrites ignored, untracked files during a clone or pull. Keep local changes in these files, then use the update command above safely.
 
-### Dashboard text and branding
+### Dashboard settings and passwords
 
-You can customise Homebase's browser title, description, favicon, visible branding, and the availability refresh interval in `/home/homebase/.env`. The following are the defaults:
+Use **⋮ → Settings** while signed in as admin to customize Homebase's browser title, description, favicon, visible branding, refresh interval, and category layout. Changes are shared immediately and stored in `data/settings.json`.
 
-```dotenv
-APP_TITLE=Homebase · Server dashboard
-APP_DESCRIPTION=A shared home-server application dashboard.
-APP_FAVICON=/images/homebase-logo.png
-BRAND_TITLE=Homebase
-BRAND_TAGLINE=Your private launchpad
-DASHBOARD_INTRO=Everything running at home, in one calm place.
-DASHBOARD_INTRO_TAGLINE=A shared launchpad for the services you host. Everyone sees the same application directory.
-DASHBOARD_REFRESH_TIME=60
-```
-
-`DASHBOARD_REFRESH_TIME` is measured in seconds and must be between `10` and `3600`. Restart or update Homebase after changing `.env`.
+The first start converts `ADMIN_PASSWORD` (and, if supplied, `GUEST_PASSWORD`) from `.env` into salted hashes in `data/auth.json`. Afterwards, change the admin or guest password in **Settings**. You may remove these bootstrap password lines from `.env` after the initial successful start; they are ignored once `data/auth.json` exists.
 
 ## Troubleshooting
 
@@ -211,7 +201,7 @@ Then rerun the update command above. Caddy can obtain and renew HTTPS certificat
 - `Caddyfile` and `compose.yaml` — web server and container deployment.
 - `compose.override.example.yaml` — starting point for ignored, machine-specific Compose settings.
 - `deploy/homebase.service` — systemd service for startup.
-- `homebase` — administrative install, uninstall, start, stop, restart, reload, update, and status command.
+- `manage.sh` — administrative install, uninstall, start, stop, restart, reload, update, and status command.
 
 ## License
 

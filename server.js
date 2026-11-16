@@ -12,15 +12,17 @@ const port = Number(process.env.PORT || 3000);
 const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const databasePath = path.join(dataDir, 'apps.json');
 const settingsPath = path.join(dataDir, 'settings.json');
+const authPath = path.join(dataDir, 'auth.json');
 const iconDir = path.join(dataDir, 'icons');
-const adminPassword = process.env.ADMIN_PASSWORD;
-const guestPassword = String(process.env.GUEST_PASSWORD || '').trim();
+const bootstrapAdminPassword = String(process.env.ADMIN_PASSWORD || '').trim();
+const bootstrapGuestPassword = String(process.env.GUEST_PASSWORD || '').trim();
 const textSetting = (name, fallback, maxLength = 240) => {
   const value = String(process.env[name] || '').trim();
   return value ? value.slice(0, maxLength) : fallback;
 };
 const dashboardRefreshTime = Number(process.env.DASHBOARD_REFRESH_TIME || 60);
-const appConfiguration = {
+const defaultSettings = {
+  layout: 'ungrouped',
   appTitle: textSetting('APP_TITLE', 'Homebase · Server dashboard', 80),
   appDescription: textSetting('APP_DESCRIPTION', 'A shared home-server application dashboard.', 180),
   appFavicon: textSetting('APP_FAVICON', '/images/homebase-logo.png', 500),
@@ -34,16 +36,23 @@ const appConfiguration = {
 };
 const sessions = new Map();
 let apps = [];
-let settings = { layout: 'ungrouped' };
+let settings = { ...defaultSettings };
+let authentication = { adminHash: '', guestHash: '' };
 let healthCache = [];
 let healthCacheAt = 0;
 let healthRefresh;
 
-if (!adminPassword || adminPassword.length < 12) {
-  throw new Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters.');
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  return `${salt}:${crypto.scryptSync(password, salt, 64).toString('hex')}`;
 }
-if (guestPassword && guestPassword.length < 12) {
-  throw new Error('Set GUEST_PASSWORD to at least 12 characters, or leave it empty for public access.');
+
+function matchesPassword(suppliedPassword, storedHash) {
+  const [salt, expectedHex] = String(storedHash || '').split(':');
+  if (!salt || !expectedHex) return false;
+  const expected = Buffer.from(expectedHex, 'hex');
+  const supplied = crypto.scryptSync(String(suppliedPassword || ''), salt, 64);
+  return expected.length === supplied.length && crypto.timingSafeEqual(expected, supplied);
 }
 
 async function loadApps() {
@@ -74,7 +83,20 @@ async function loadSettings() {
     const layout = ['ungrouped', 'grouped', 'tabs'].includes(parsed?.layout)
       ? parsed.layout
       : parsed?.groupByCategory ? 'grouped' : 'ungrouped';
-    settings = { layout };
+    settings = {
+      layout,
+      appTitle: String(parsed?.appTitle || defaultSettings.appTitle).slice(0, 80),
+      appDescription: String(parsed?.appDescription || defaultSettings.appDescription).slice(0, 180),
+      appFavicon: String(parsed?.appFavicon || defaultSettings.appFavicon).slice(0, 500),
+      brandTitle: String(parsed?.brandTitle || defaultSettings.brandTitle).slice(0, 48),
+      brandTagline: String(parsed?.brandTagline || defaultSettings.brandTagline).slice(0, 80),
+      dashboardIntro: String(parsed?.dashboardIntro || defaultSettings.dashboardIntro).slice(0, 140),
+      dashboardIntroTagline: String(parsed?.dashboardIntroTagline || defaultSettings.dashboardIntroTagline).slice(0, 240),
+      dashboardRefreshTime: Number.isFinite(Number(parsed?.dashboardRefreshTime)) && Number(parsed.dashboardRefreshTime) >= 10 && Number(parsed.dashboardRefreshTime) <= 3600
+        ? Number(parsed.dashboardRefreshTime)
+        : defaultSettings.dashboardRefreshTime,
+    };
+    if (JSON.stringify(settings) !== JSON.stringify(parsed)) await persistSettings();
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     await persistSettings();
@@ -83,6 +105,25 @@ async function loadSettings() {
 
 async function persistSettings() {
   writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+}
+
+async function loadAuthentication() {
+  try {
+    const content = await readFile(authPath, 'utf8');
+    const parsed = JSON.parse(content);
+    if (!parsed?.adminHash) throw new Error('The authentication data has no admin password.');
+    authentication = { adminHash: String(parsed.adminHash), guestHash: String(parsed.guestHash || '') };
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    if (bootstrapAdminPassword.length < 12) throw new Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters for the first Homebase launch.');
+    if (bootstrapGuestPassword && bootstrapGuestPassword.length < 12) throw new Error('Set GUEST_PASSWORD to at least 12 characters, or leave it empty for public access.');
+    authentication = { adminHash: hashPassword(bootstrapAdminPassword), guestHash: bootstrapGuestPassword ? hashPassword(bootstrapGuestPassword) : '' };
+    await persistAuthentication();
+  }
+}
+
+async function persistAuthentication() {
+  writeFileSync(authPath, `${JSON.stringify(authentication, null, 2)}\n`, 'utf8');
 }
 
 function normalizeApp(input) {
@@ -181,7 +222,7 @@ async function refreshApplicationHealth() {
   // mixed-content restrictions. Do the probes here instead, where Homebase is
   // running on the same network as the services it lists.
   if (healthRefresh) return healthRefresh;
-  if (Date.now() - healthCacheAt < 55_000) return healthCache;
+  if (Date.now() - healthCacheAt < settings.dashboardRefreshTime * 1000) return healthCache;
 
   healthRefresh = (async () => {
     let iconsChanged = false;
@@ -217,18 +258,12 @@ function sessionFor(request) {
   return session;
 }
 
-function matchesPassword(suppliedPassword, expectedPassword) {
-  const expected = Buffer.from(expectedPassword);
-  const supplied = Buffer.from(suppliedPassword);
-  return expected.length === supplied.length && crypto.timingSafeEqual(expected, supplied);
-}
-
 async function requireAuthenticated(request, reply) {
   if (!sessionFor(request)) return reply.code(401).send({ error: 'Sign-in required.' });
 }
 
 async function requireViewer(request, reply) {
-  if (guestPassword && !sessionFor(request)) return reply.code(401).send({ error: 'Sign-in required.' });
+  if (authentication.guestHash && !sessionFor(request)) return reply.code(401).send({ error: 'Sign-in required.' });
 }
 
 async function requireAdmin(request, reply) {
@@ -243,17 +278,18 @@ await app.register(fastifyStatic, { root: iconDir, prefix: '/app-icons/', wildca
 
 app.get('/api/apps', { preHandler: requireViewer }, async () => apps);
 app.get('/api/apps/health', { preHandler: requireViewer }, async () => refreshApplicationHealth());
-app.get('/api/config', { preHandler: requireViewer }, async () => appConfiguration);
-app.get('/api/settings', { preHandler: requireViewer }, async () => settings);
+app.get('/api/config', { preHandler: requireViewer }, async () => settings);
+app.get('/api/settings', { preHandler: requireViewer }, async () => ({ ...settings, guestEnabled: Boolean(authentication.guestHash) }));
+app.get('/api/auth', { preHandler: requireAdmin }, async () => ({ guestEnabled: Boolean(authentication.guestHash) }));
 app.get('/api/session', async (request) => {
   const session = sessionFor(request);
-  return { authenticated: Boolean(session), role: session?.role || null, authenticationRequired: Boolean(guestPassword) };
+  return { authenticated: Boolean(session), role: session?.role || null, authenticationRequired: Boolean(authentication.guestHash) };
 });
 
 app.post('/api/login', async (request, reply) => {
   const password = String(request.body?.password || '');
-  const adminMatch = matchesPassword(password, adminPassword);
-  const guestMatch = Boolean(guestPassword) && matchesPassword(password, guestPassword);
+  const adminMatch = matchesPassword(password, authentication.adminHash);
+  const guestMatch = Boolean(authentication.guestHash) && matchesPassword(password, authentication.guestHash);
   const adminOnly = Boolean(request.body?.adminOnly);
   if (!adminMatch && (!guestMatch || adminOnly)) {
     request.log.warn({ event: 'authentication_failed', requestedRole: adminOnly ? 'admin' : 'viewer' }, 'Failed authentication attempt');
@@ -273,10 +309,51 @@ app.post('/api/logout', { preHandler: requireAuthenticated }, async (_request, r
 });
 
 app.put('/api/settings', { preHandler: requireAdmin }, async (request, reply) => {
-  if (!['ungrouped', 'grouped', 'tabs'].includes(request.body?.layout)) return reply.code(400).send({ error: 'A valid layout preference is required.' });
-  settings = { layout: request.body.layout };
+  const input = request.body || {};
+  const layout = ['ungrouped', 'grouped', 'tabs'].includes(input.layout) ? input.layout : null;
+  const refreshTime = Number(input.dashboardRefreshTime);
+  const text = (name, maximum) => String(input[name] || '').trim().slice(0, maximum);
+  if (!layout || !text('appTitle', 80) || !text('brandTitle', 48) || !text('dashboardIntro', 140) || !Number.isFinite(refreshTime) || refreshTime < 10 || refreshTime > 3600) {
+    return reply.code(400).send({ error: 'Complete the required settings and use a refresh interval between 10 and 3600 seconds.' });
+  }
+  settings = {
+    layout,
+    appTitle: text('appTitle', 80),
+    appDescription: text('appDescription', 180),
+    appFavicon: text('appFavicon', 500),
+    brandTitle: text('brandTitle', 48),
+    brandTagline: text('brandTagline', 80),
+    dashboardIntro: text('dashboardIntro', 140),
+    dashboardIntroTagline: text('dashboardIntroTagline', 240),
+    dashboardRefreshTime: refreshTime,
+  };
   await persistSettings();
-  return settings;
+  return { ...settings, guestEnabled: Boolean(authentication.guestHash) };
+});
+
+app.put('/api/auth', { preHandler: requireAdmin }, async (request, reply) => {
+  const input = request.body || {};
+  const adminPassword = String(input.adminPassword || '');
+  const currentAdminPassword = String(input.currentAdminPassword || '');
+  const guestPassword = String(input.guestPassword || '');
+  const guestEnabled = Boolean(input.guestEnabled);
+  if (adminPassword) {
+    if (adminPassword.length < 12) return reply.code(400).send({ error: 'The new admin password must have at least 12 characters.' });
+    if (!matchesPassword(currentAdminPassword, authentication.adminHash)) return reply.code(400).send({ error: 'Your current admin password is incorrect.' });
+    authentication.adminHash = hashPassword(adminPassword);
+  }
+  if (guestEnabled) {
+    if (guestPassword) {
+      if (guestPassword.length < 12) return reply.code(400).send({ error: 'The guest password must have at least 12 characters.' });
+      authentication.guestHash = hashPassword(guestPassword);
+    } else if (!authentication.guestHash) {
+      return reply.code(400).send({ error: 'Enter a guest password to enable dashboard sign-in.' });
+    }
+  } else {
+    authentication.guestHash = '';
+  }
+  await persistAuthentication();
+  return { guestEnabled: Boolean(authentication.guestHash) };
 });
 
 app.post('/api/apps', { preHandler: requireAdmin }, async (request, reply) => {
@@ -314,4 +391,5 @@ app.delete('/api/apps/:id', { preHandler: requireAdmin }, async (request, reply)
 
 await loadApps();
 await loadSettings();
+await loadAuthentication();
 await app.listen({ port, host: '0.0.0.0' });
