@@ -115,6 +115,23 @@ sudo -u homebase editor /home/homebase/compose.override.yaml
 
 Git never overwrites ignored, untracked files during a clone or pull. Keep local changes in these files, then use the update command above safely.
 
+### Dashboard text and branding
+
+You can customise Homebase's browser title, description, favicon, visible branding, and the availability refresh interval in `/home/homebase/.env`. The following are the defaults:
+
+```dotenv
+APP_TITLE=Homebase · Server dashboard
+APP_DESCRIPTION=A shared home-server application dashboard.
+APP_FAVICON=/homebase-logo.png
+BRAND_TITLE=Homebase
+BRAND_TAGLINE=Your private launchpad
+DASHBOARD_INTRO=Everything running at home, in one calm place.
+DASHBOARD_INTRO_TAGLINE=A shared launchpad for the services you host. Everyone sees the same application directory.
+DASHBOARD_REFRESH_TIME=60
+```
+
+`DASHBOARD_REFRESH_TIME` is measured in seconds and must be between `10` and `3600`. Restart or update Homebase after changing `.env`.
+
 ## Troubleshooting
 
 Run these commands as the `homebase` user—not as `root`—to avoid Git ownership warnings.
