@@ -43,7 +43,7 @@ Clone the project into that account's home directory:
 sudo -u homebase git clone https://github.com/hvmonteiro/homebase.git /home/homebase
 ```
 
-Create the local configuration, set a long unique admin password, and start Homebase:
+Create the local configuration and start Homebase:
 
 ```sh
 sudo -u homebase cp /home/homebase/.env.example /home/homebase/.env
@@ -51,9 +51,9 @@ sudo -u homebase editor /home/homebase/.env
 sudo /home/homebase/manage.sh install
 ```
 
-Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. `ADMIN_PASSWORD` is used only on the first start to create the local, salted admin-password hash. Use the top-right `⋮` menu and sign in as `admin` to manage applications and settings.
+Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. On a new installation, Homebase starts open: anyone who can reach it can manage applications and Settings until an administrator password is created.
 
-Guest access, dashboard presentation, refresh interval, and dashboard layout are managed in **⋮ → Settings**. Guest sign-in allows browsing only; the admin account remains required to manage Homebase.
+Guest access, dashboard presentation, refresh interval, and dashboard layout are managed in **⋮ → Settings**. Set an administrator password there to require admin authentication; only then can you enable a guest password. Guest sign-in allows browsing only.
 
 > Docker's `docker` group grants elevated control over the host. Keep membership limited to the dedicated `homebase` account and trusted administrators.
 
@@ -103,7 +103,7 @@ sudo /home/homebase/manage.sh uninstall-cron
 
 Do not modify Git-tracked files for machine-specific settings. Use these local files instead:
 
-- `.env` — first-run password bootstrap, hostname, ports, and other runtime values.
+- `.env` — hostname, ports, and other runtime values.
 - `data/apps.json` — the shared application directory.
 - `data/settings.json` — shared dashboard presentation and layout preferences.
 - `data/auth.json` — salted admin and optional guest password hashes.
@@ -122,7 +122,7 @@ Git never overwrites ignored, untracked files during a clone or pull. Keep local
 
 Use **⋮ → Settings** while signed in as admin to customize Homebase's browser title, description, favicon, visible branding, refresh interval, and category layout. Changes are shared immediately and stored in `data/settings.json`.
 
-The first start converts `ADMIN_PASSWORD` (and, if supplied, `GUEST_PASSWORD`) from `.env` into salted hashes in `data/auth.json`. Afterwards, change the admin or guest password in **Settings**. You may remove these bootstrap password lines from `.env` after the initial successful start; they are ignored once `data/auth.json` exists.
+New installations have no administrator password. In **⋮ → Settings**, set one to protect administration; Homebase stores only a salted hash in `data/auth.json`. Guest access is locked until an administrator password exists.
 
 ## Troubleshooting
 

@@ -14,8 +14,6 @@ const databasePath = path.join(dataDir, 'apps.json');
 const settingsPath = path.join(dataDir, 'settings.json');
 const authPath = path.join(dataDir, 'auth.json');
 const iconDir = path.join(dataDir, 'icons');
-const bootstrapAdminPassword = String(process.env.ADMIN_PASSWORD || '').trim();
-const bootstrapGuestPassword = String(process.env.GUEST_PASSWORD || '').trim();
 const textSetting = (name, fallback, maxLength = 240) => {
   const value = String(process.env[name] || '').trim();
   return value ? value.slice(0, maxLength) : fallback;
@@ -115,10 +113,7 @@ async function loadAuthentication() {
     authentication = { adminHash: String(parsed.adminHash), guestHash: String(parsed.guestHash || '') };
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
-    if (bootstrapAdminPassword.length < 12) throw new Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters for the first Homebase launch.');
-    if (bootstrapGuestPassword && bootstrapGuestPassword.length < 12) throw new Error('Set GUEST_PASSWORD to at least 12 characters, or leave it empty for public access.');
-    authentication = { adminHash: hashPassword(bootstrapAdminPassword), guestHash: bootstrapGuestPassword ? hashPassword(bootstrapGuestPassword) : '' };
-    await persistAuthentication();
+    authentication = { adminHash: '', guestHash: '' };
   }
 }
 
@@ -267,6 +262,7 @@ async function requireViewer(request, reply) {
 }
 
 async function requireAdmin(request, reply) {
+  if (!authentication.adminHash) return;
   if (sessionFor(request)?.role !== 'admin') return reply.code(401).send({ error: 'Admin sign-in required.' });
 }
 
@@ -279,14 +275,15 @@ await app.register(fastifyStatic, { root: iconDir, prefix: '/app-icons/', wildca
 app.get('/api/apps', { preHandler: requireViewer }, async () => apps);
 app.get('/api/apps/health', { preHandler: requireViewer }, async () => refreshApplicationHealth());
 app.get('/api/config', { preHandler: requireViewer }, async () => settings);
-app.get('/api/settings', { preHandler: requireViewer }, async () => ({ ...settings, guestEnabled: Boolean(authentication.guestHash) }));
-app.get('/api/auth', { preHandler: requireAdmin }, async () => ({ guestEnabled: Boolean(authentication.guestHash) }));
+app.get('/api/settings', { preHandler: requireViewer }, async () => ({ ...settings, guestEnabled: Boolean(authentication.guestHash), adminConfigured: Boolean(authentication.adminHash) }));
+app.get('/api/auth', { preHandler: requireAdmin }, async () => ({ guestEnabled: Boolean(authentication.guestHash), adminConfigured: Boolean(authentication.adminHash) }));
 app.get('/api/session', async (request) => {
   const session = sessionFor(request);
-  return { authenticated: Boolean(session), role: session?.role || null, authenticationRequired: Boolean(authentication.guestHash) };
+  return { authenticated: Boolean(session) || !authentication.adminHash, role: session?.role || (!authentication.adminHash ? 'admin' : null), authenticationRequired: Boolean(authentication.guestHash), adminConfigured: Boolean(authentication.adminHash) };
 });
 
 app.post('/api/login', async (request, reply) => {
+  if (!authentication.adminHash) return { authenticated: true, role: 'admin' };
   const password = String(request.body?.password || '');
   const adminMatch = matchesPassword(password, authentication.adminHash);
   const guestMatch = Boolean(authentication.guestHash) && matchesPassword(password, authentication.guestHash);
@@ -328,7 +325,7 @@ app.put('/api/settings', { preHandler: requireAdmin }, async (request, reply) =>
     dashboardRefreshTime: refreshTime,
   };
   await persistSettings();
-  return { ...settings, guestEnabled: Boolean(authentication.guestHash) };
+  return { ...settings, guestEnabled: Boolean(authentication.guestHash), adminConfigured: Boolean(authentication.adminHash) };
 });
 
 app.put('/api/auth', { preHandler: requireAdmin }, async (request, reply) => {
@@ -339,9 +336,10 @@ app.put('/api/auth', { preHandler: requireAdmin }, async (request, reply) => {
   const guestEnabled = Boolean(input.guestEnabled);
   if (adminPassword) {
     if (adminPassword.length < 12) return reply.code(400).send({ error: 'The new admin password must have at least 12 characters.' });
-    if (!matchesPassword(currentAdminPassword, authentication.adminHash)) return reply.code(400).send({ error: 'Your current admin password is incorrect.' });
+    if (authentication.adminHash && !matchesPassword(currentAdminPassword, authentication.adminHash)) return reply.code(400).send({ error: 'Your current admin password is incorrect.' });
     authentication.adminHash = hashPassword(adminPassword);
   }
+  if (guestEnabled && !authentication.adminHash) return reply.code(400).send({ error: 'Set an administrator password before enabling guest access.' });
   if (guestEnabled) {
     if (guestPassword) {
       if (guestPassword.length < 12) return reply.code(400).send({ error: 'The guest password must have at least 12 characters.' });
@@ -353,7 +351,7 @@ app.put('/api/auth', { preHandler: requireAdmin }, async (request, reply) => {
     authentication.guestHash = '';
   }
   await persistAuthentication();
-  return { guestEnabled: Boolean(authentication.guestHash) };
+  return { guestEnabled: Boolean(authentication.guestHash), adminConfigured: Boolean(authentication.adminHash) };
 });
 
 app.post('/api/apps', { preHandler: requireAdmin }, async (request, reply) => {
