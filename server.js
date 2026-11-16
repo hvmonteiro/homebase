@@ -350,13 +350,11 @@ app.put('/api/auth', { preHandler: requireAdmin }, async (request, reply) => {
   const guestPassword = String(input.guestPassword || '');
   const guestEnabled = Boolean(input.guestEnabled);
   if (adminPassword) {
-    if (adminPassword.length < 12) return reply.code(400).send({ error: 'The new admin password must have at least 12 characters.' });
     authentication.adminHash = hashPassword(adminPassword);
   }
   if (guestEnabled && !authentication.adminHash) return reply.code(400).send({ error: 'Set an administrator password before enabling guest access.' });
   if (guestEnabled) {
     if (guestPassword) {
-      if (guestPassword.length < 12) return reply.code(400).send({ error: 'The guest password must have at least 12 characters.' });
       authentication.guestHash = hashPassword(guestPassword);
     } else if (!authentication.guestHash) {
       return reply.code(400).send({ error: 'Enter a guest password to enable dashboard sign-in.' });
