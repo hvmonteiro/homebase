@@ -323,6 +323,7 @@ app.put('/api/settings', { preHandler: requireAdmin }, async (request, reply) =>
   const layout = ['ungrouped', 'grouped', 'tabs'].includes(input.layout) ? input.layout : null;
   const refreshTime = Number(input.dashboardRefreshTime);
   const text = (name, maximum) => String(input[name] || '').trim().slice(0, maximum);
+  const faviconMode = input.appFaviconMode === 'upload' ? 'upload' : 'default';
   const uploadedFavicon = input.appFaviconUpload ? storeUploadedFavicon(input.appFaviconUpload) : null;
   if (input.appFaviconUpload && !uploadedFavicon) return reply.code(400).send({ error: 'Upload a PNG, JPEG, SVG, or ICO favicon smaller than 1 MB.' });
   if (!layout || !text('appTitle', 80) || !text('brandTitle', 48) || !text('dashboardIntro', 140) || !Number.isFinite(refreshTime) || refreshTime < 10 || refreshTime > 3600) {
@@ -332,7 +333,7 @@ app.put('/api/settings', { preHandler: requireAdmin }, async (request, reply) =>
     layout,
     appTitle: text('appTitle', 80),
     appDescription: text('appDescription', 180),
-    appFavicon: uploadedFavicon || text('appFavicon', 500),
+    appFavicon: faviconMode === 'default' ? '' : (uploadedFavicon || settings.appFavicon || ''),
     brandTitle: text('brandTitle', 48),
     brandTagline: text('brandTagline', 80),
     dashboardIntro: text('dashboardIntro', 140),
