@@ -134,7 +134,7 @@ function normalizeApp(input) {
   const iconMode = input?.iconMode === 'emoji' ? 'emoji' : 'favicon';
   const color = String(input?.color || '#5a8cf0');
   let url;
-  try { url = new URL(String(input?.url || '').trim()).toString(); } catch { url = ''; }
+  try { const parsed = new URL(String(input?.url || '').trim()); url = ['http:', 'https:'].includes(parsed.protocol) ? parsed.toString() : ''; } catch { url = ''; }
   if (!name || !category || !url || !/^#[0-9a-fA-F]{6}$/.test(color)) return null;
   return { name, category, url, description, icon, iconMode, color };
 }
