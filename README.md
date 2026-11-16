@@ -124,7 +124,7 @@ You can customise Homebase's browser title, description, favicon, visible brandi
 ```dotenv
 APP_TITLE=Homebase · Server dashboard
 APP_DESCRIPTION=A shared home-server application dashboard.
-APP_FAVICON=/homebase-logo.png
+APP_FAVICON=/images/homebase-logo.png
 BRAND_TITLE=Homebase
 BRAND_TAGLINE=Your private launchpad
 DASHBOARD_INTRO=Everything running at home, in one calm place.
@@ -204,7 +204,7 @@ Then rerun the update command above. Caddy can obtain and renew HTTPS certificat
 ## Project layout
 
 - `server.js` — Fastify API, authentication, and JSON-file storage.
-- `public/` — Homebase interface.
+- `public/` — Homebase interface, organised into `css/`, `js/`, and `images/` assets.
 - `data/apps.json` — created automatically on first run; never commit it.
 - `Caddyfile` and `compose.yaml` — web server and container deployment.
 - `compose.override.example.yaml` — starting point for ignored, machine-specific Compose settings.

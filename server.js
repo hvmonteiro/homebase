@@ -23,7 +23,7 @@ const dashboardRefreshTime = Number(process.env.DASHBOARD_REFRESH_TIME || 60);
 const appConfiguration = {
   appTitle: textSetting('APP_TITLE', 'Homebase · Server dashboard', 80),
   appDescription: textSetting('APP_DESCRIPTION', 'A shared home-server application dashboard.', 180),
-  appFavicon: textSetting('APP_FAVICON', '/homebase-logo.png', 500),
+  appFavicon: textSetting('APP_FAVICON', '/images/homebase-logo.png', 500),
   brandTitle: textSetting('BRAND_TITLE', 'Homebase', 48),
   brandTagline: textSetting('BRAND_TAGLINE', 'Your private launchpad', 80),
   dashboardIntro: textSetting('DASHBOARD_INTRO', 'Everything running at home, in one calm place.', 140),
