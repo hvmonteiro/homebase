@@ -53,6 +53,8 @@ sudo /home/homebase/manage.sh install
 
 Set `HOMEBASE_PORT` in `.env` to a free port, then open `http://<server-ip>:<HOMEBASE_PORT>/` from your home network. The default is `8080`. Use the top-right `⋮` menu and sign in as `admin` to add shared application links.
 
+To require a password before anyone can view the dashboard, set `GUEST_PASSWORD` to a separate password of at least 12 characters in `.env`. Leave it empty to keep the dashboard visible on your home network. Guest sign-in allows browsing only; the `ADMIN_PASSWORD` remains required to manage applications.
+
 > Docker's `docker` group grants elevated control over the host. Keep membership limited to the dedicated `homebase` account and trusted administrators.
 
 ## Manage Homebase

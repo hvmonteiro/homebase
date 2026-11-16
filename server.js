@@ -14,6 +14,7 @@ const databasePath = path.join(dataDir, 'apps.json');
 const settingsPath = path.join(dataDir, 'settings.json');
 const iconDir = path.join(dataDir, 'icons');
 const adminPassword = process.env.ADMIN_PASSWORD;
+const guestPassword = String(process.env.GUEST_PASSWORD || '').trim();
 const textSetting = (name, fallback, maxLength = 240) => {
   const value = String(process.env[name] || '').trim();
   return value ? value.slice(0, maxLength) : fallback;
@@ -40,6 +41,9 @@ let healthRefresh;
 
 if (!adminPassword || adminPassword.length < 12) {
   throw new Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters.');
+}
+if (guestPassword && guestPassword.length < 12) {
+  throw new Error('Set GUEST_PASSWORD to at least 12 characters, or leave it empty for public access.');
 }
 
 async function loadApps() {
@@ -212,8 +216,22 @@ function sessionFor(request) {
   return session;
 }
 
+function matchesPassword(suppliedPassword, expectedPassword) {
+  const expected = Buffer.from(expectedPassword);
+  const supplied = Buffer.from(suppliedPassword);
+  return expected.length === supplied.length && crypto.timingSafeEqual(expected, supplied);
+}
+
+async function requireAuthenticated(request, reply) {
+  if (!sessionFor(request)) return reply.code(401).send({ error: 'Sign-in required.' });
+}
+
+async function requireViewer(request, reply) {
+  if (guestPassword && !sessionFor(request)) return reply.code(401).send({ error: 'Sign-in required.' });
+}
+
 async function requireAdmin(request, reply) {
-  if (!sessionFor(request)) return reply.code(401).send({ error: 'Admin sign-in required.' });
+  if (sessionFor(request)?.role !== 'admin') return reply.code(401).send({ error: 'Admin sign-in required.' });
 }
 
 const app = Fastify({ logger: true, trustProxy: process.env.TRUST_PROXY === 'true' });
@@ -222,25 +240,29 @@ await app.register(cookie);
 await app.register(fastifyStatic, { root: path.join(process.cwd(), 'public'), prefix: '/', wildcard: false });
 await app.register(fastifyStatic, { root: iconDir, prefix: '/app-icons/', wildcard: false, decorateReply: false });
 
-app.get('/api/apps', async () => apps);
-app.get('/api/apps/health', async () => refreshApplicationHealth());
-app.get('/api/config', async () => appConfiguration);
-app.get('/api/settings', async () => settings);
-app.get('/api/session', async (request) => ({ authenticated: Boolean(sessionFor(request)), username: 'admin' }));
+app.get('/api/apps', { preHandler: requireViewer }, async () => apps);
+app.get('/api/apps/health', { preHandler: requireViewer }, async () => refreshApplicationHealth());
+app.get('/api/config', { preHandler: requireViewer }, async () => appConfiguration);
+app.get('/api/settings', { preHandler: requireViewer }, async () => settings);
+app.get('/api/session', async (request) => {
+  const session = sessionFor(request);
+  return { authenticated: Boolean(session), role: session?.role || null, authenticationRequired: Boolean(guestPassword) };
+});
 
 app.post('/api/login', async (request, reply) => {
   const password = String(request.body?.password || '');
-  const expected = Buffer.from(adminPassword);
-  const supplied = Buffer.from(password);
-  const valid = expected.length === supplied.length && crypto.timingSafeEqual(expected, supplied);
-  if (!valid) return reply.code(401).send({ error: 'Incorrect password.' });
+  const adminMatch = matchesPassword(password, adminPassword);
+  const guestMatch = Boolean(guestPassword) && matchesPassword(password, guestPassword);
+  const adminOnly = Boolean(request.body?.adminOnly);
+  if (!adminMatch && (!guestMatch || adminOnly)) return reply.code(401).send({ error: 'Incorrect password.' });
+  const role = adminMatch ? 'admin' : 'guest';
   const token = crypto.randomBytes(32).toString('base64url');
-  sessions.set(token, { expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
+  sessions.set(token, { role, expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
   reply.setCookie('homebase_session', token, { httpOnly: true, sameSite: 'strict', secure: request.protocol === 'https', path: '/', maxAge: 60 * 60 * 12 });
-  return { authenticated: true, username: 'admin' };
+  return { authenticated: true, role };
 });
 
-app.post('/api/logout', { preHandler: requireAdmin }, async (_request, reply) => {
+app.post('/api/logout', { preHandler: requireAuthenticated }, async (_request, reply) => {
   sessions.delete(_request.cookies.homebase_session);
   reply.clearCookie('homebase_session', { path: '/' });
   return reply.code(204).send();
